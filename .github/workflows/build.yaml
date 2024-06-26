@@ -1,0 +1,192 @@
+name: PlatformIO Build
+
+on:
+  push:
+    branches: ["main"]
+    # tags: ["v*.*.*"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    outputs:
+      branchname: ${{ steps.versioninfo.outputs.branchname }}
+      commithash: ${{ steps.versioninfo.outputs.commithash }}
+      buildtimestamp: ${{ steps.versioninfo.outputs.buildtimestamp }}
+      lastmajordigit: ${{ steps.versioninfo.outputs.lastmajordigit }}
+      lastminordigit: ${{ steps.versioninfo.outputs.lastminordigit }}
+      lastpatchdigit: ${{ steps.versioninfo.outputs.lastpatchdigit }}
+      lastversion: ${{ steps.versioninfo.outputs.lastversion }}
+      nextmajordigit: ${{ steps.selectversion.outputs.nextmajordigit }}
+      nextminordigit: ${{ steps.selectversion.outputs.nextminordigit }}
+      nextpatchdigit: ${{ steps.selectversion.outputs.nextpatchdigit }}
+      buildversion: ${{ steps.selectversion.outputs.buildversion }}
+      buildversionfilename: ${{ steps.selectversion.outputs.buildversionfilename }}
+
+    steps:
+      - uses: actions/checkout@v4.1.5
+        with:
+          submodules: "true"
+          token: ${{ secrets.YSIGNALITE_TOKEN }}
+      - name: Fetch tags
+        run: git fetch --prune --unshallow --tags
+      - uses: actions/cache@v4.0.2
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+      - name: Get version data
+        id: versioninfo
+        run: |
+          echo "extract branch name from github_ref '${{ github.ref }}'"
+          declare branchname=$(echo "${{ github.ref }}" | cut -d'/' -f 3-)
+          echo "clean branch name = $branchname"
+          echo "extract commit short hash : $(git rev-parse --short HEAD)"
+          declare commithash=$(git rev-parse --short HEAD)
+          echo "extract build timestamp"
+          declare buildtimestamp=$(date "+%Y-%b-%d-%H:%M:%S")
+          echo "buildtimestamp = $buildtimestamp"
+          declare fulltag=$(git describe --tag $(git rev-parse --verify refs/remotes/origin/main))
+          echo "fulltag = [$fulltag]"
+          declare versiontag=$(echo $fulltag | cut -d'-' -f1)
+          echo "extract SemVer numbers from version tag [$versiontag]"
+          declare -i lastmajordigit=$(echo $versiontag | cut -c 1- | cut -d'.' -f1)
+          echo "lastmajordigit = $lastmajordigit"
+          declare -i lastminordigit=$(echo $versiontag | cut -c 1- | cut -d'.' -f2)
+          echo "lastminordigit = $lastminordigit"
+          declare -i lastpatchdigit=$(echo $versiontag | cut -c 1- | cut -d'.' -f3)
+          echo "lastpatchdigit = $lastpatchdigit"
+          declare lastversion="v$lastmajordigit.$lastminordigit.$lastpatchdigit"
+          echo "output variables to GitHub Actions"
+          echo "branchname=$branchname" >> $GITHUB_OUTPUT
+          echo "lastmajordigit=$lastmajordigit" >> $GITHUB_OUTPUT
+          echo "lastminordigit=$lastminordigit" >> $GITHUB_OUTPUT
+          echo "lastpatchdigit=$lastpatchdigit" >> $GITHUB_OUTPUT
+          echo "commithash=$commithash" >> $GITHUB_OUTPUT
+          echo "buildtimestamp=$buildtimestamp" >> $GITHUB_OUTPUT
+          echo "lastversion=$lastversion" >> $GITHUB_OUTPUT
+      - name: Determine which version to build
+        id: selectversion
+        run: |
+          echo "Triggered from Branch : ${{ steps.versioninfo.outputs.branchname }}"
+          echo "Commit hash           : ${{ steps.versioninfo.outputs.commithash }}"
+          echo "Last version          : ${{ steps.versioninfo.outputs.lastversion }}"
+          echo "  Major               : ${{ steps.versioninfo.outputs.lastmajordigit }}"
+          echo "  Minor               : ${{ steps.versioninfo.outputs.lastminordigit }}"
+          echo "  Patch               : ${{ steps.versioninfo.outputs.lastpatchdigit }}"
+          if [ "${{ steps.versioninfo.outputs.branchname }}" == "main" ]; then
+            echo "Triggered from merge on main branch with commit title : ${{ github.event.head_commit.message }}"
+            if [[ "${{ github.event.head_commit.message }}" == *"major"* ]]; then
+              echo "Incrementing Major versionDigit"
+              declare -i nextmajordigit=${{ steps.versioninfo.outputs.lastmajordigit }}+1
+              declare -i nextminordigit=0
+              declare -i nextpatchdigit=0
+              declare buildversion="v$nextmajordigit.$nextminordigit.$nextpatchdigit"
+              declare buildversionfilename=$(echo "${builVversion//./_}")
+
+            elif [[ "${{ github.event.head_commit.message }}" == *"minor"* ]]; then
+              echo "Incrementing Minor versionDigit"
+              declare -i nextmajordigit=${{ steps.versioninfo.outputs.lastmajordigit }}
+              declare -i nextminordigit=${{ steps.versioninfo.outputs.lastminordigit }}+1
+              declare -i nextpatchdigit=0
+              declare buildversion="v$nextmajordigit.$nextminordigit.$nextpatchdigit"
+              declare buildversionfilename=$(echo "${builVversion//./_}")
+            else
+              echo "Incrementing Patch versionDigit"
+              declare -i nextmajordigit=${{ steps.versioninfo.outputs.lastmajordigit }}
+              declare -i nextminordigit=${{ steps.versioninfo.outputs.lastminordigit }}
+              declare -i nextpatchdigit=${{ steps.versioninfo.outputs.lastpatchdigit }}+1
+              declare buildversion="v$nextmajordigit.$nextminordigit.$nextpatchdigit"
+              declare buildversionfilename=$(echo "${builVversion//./_}")
+            fi
+          else
+            echo "Not on main branch -> development version"
+            declare -i nextmajordigit=${{ steps.versioninfo.outputs.lastmajordigit }}
+            declare -i nextminordigit=${{ steps.versioninfo.outputs.lastminordigit }}
+            declare -i nextpatchdigit=${{ steps.versioninfo.outputs.lastpatchdigit }}
+            declare buildversion="v$nextmajordigit.$nextminordigit.$nextpatchdigit-${{ steps.versioninfo.outputs.commithash }}"
+            declare buildversionfilename=$(echo "${builVversion//./_}")
+          fi
+          echo "Building Version : $buildversion"
+          echo "  Major          : $nextmajordigit"
+          echo "  Minor          : $nextminordigit"
+          echo "  Patch          : $nextpatchdigit"
+          echo "Filename         : $buildversionfilename"
+          echo "output variables to GitHub Actions"
+          echo "nextmajordigit=$nextmajordigit" >> $GITHUB_OUTPUT
+          echo "nextminordigit=$nextminordigit" >> $GITHUB_OUTPUT
+          echo "nextpatchdigit=$nextpatchdigit" >> $GITHUB_OUTPUT
+          echo "buildversion=$buildversion" >> $GITHUB_OUTPUT
+          echo "buildversionfilename=$buildversionfilename" >> $GITHUB_OUTPUT
+      - name: Show Build info
+        id: showbuildinfo
+        run: |
+          echo "Build Version   : ${{ steps.selectversion.outputs.buildversion }}"
+          echo "  Major         : ${{ steps.selectversion.outputs.nextmajordigit }}"
+          echo "  Minor         : ${{ steps.selectversion.outputs.nextminordigit }}"
+          echo "  Patch         : ${{ steps.selectversion.outputs.nextpatchdigit }}"
+          echo "Build Filename  : ${{ steps.selectversion.outputs.buildversionfilename }}.bin"
+          echo "Build Timestamp : ${{ steps.versioninfo.outputs.buildtimestamp }}"
+      - name: Save Build info
+        uses: "DamianReeves/write-file-action@v1.3"
+        with:
+          path: lib/Version/BuildInfo.cpp
+          write-mode: overwrite
+          contents: |
+            // ##########################################################################
+            // ### This file is generated by Build and Continuous Integration scripts ###
+            // ###   .github/workflows/BuildInfo.py for local development environment ###
+            // ###   .github/workflows/testbuildrelease.yml for CI environment        ###
+            // ### Changes will be overwritten on the next build                      ###
+            // ##########################################################################
+            #include "BuildInfo.h"
+            const BuildEnvironment BuildInfo::buildEnvironment{BuildEnvironment::ci};
+            const BuildType BuildInfo::buildType{BuildType::production};
+            const int BuildInfo::mainVersionDigit   = ${{ steps.selectversion.outputs.nextmajordigit }};
+            const int BuildInfo::minorVersionDigit  = ${{ steps.selectversion.outputs.nextminordigit }};
+            const int BuildInfo::patchVersionDigit  = ${{ steps.selectversion.outputs.nextpatchdigit }};
+            const char* BuildInfo::lastCommitTag    = "${{ steps.versioninfo.outputs.commithash }}";
+            const char* BuildInfo::buildTimeStamp   = "${{ steps.versioninfo.outputs.buildtimestamp }}";
+      - name: Verify Saved Build info
+        run: |
+          cat lib/Version/BuildInfo.cpp
+      - uses: actions/setup-python@v5.1.0
+        with:
+          python-version: "3.11"
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+      - name: Test Project
+        run: pio test --environment cloud_recette
+      - name: Build PlatformIO Project
+        run: pio run --environment cloud_arduino_nano_esp32
+      # - name: Attach Binary to Workflow run
+      #   uses: actions/upload-artifact@v4.3.3
+      #   with:
+      #     name: ${{ steps.selectversion.outputs.buildversionfilename }}.bin
+      #     path: .pio/build/cloud_arduino_nano_esp32/
+      #     if-no-files-found: error
+      - name: Release when on main branch
+        id: createrelease
+        uses: actions/create-release@v1
+        if: ${{ steps.versioninfo.outputs.branchname == 'main'}}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.selectversion.outputs.buildversion }}
+          release_name: Release ${{ steps.selectversion.outputs.buildversion }}
+          draft: false
+          prerelease: false
+      # - name: Attach Binary to Release
+      #   id: attachbinarytorelease
+      #   uses: actions/upload-release-asset@v1
+      #   if: ${{ steps.versioninfo.outputs.branchname == 'main'}}
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.createrelease.outputs.upload_url }}
+      #     asset_path: .pio/build/cloud_arduino_nano_esp32/firmware.bin
+      #     asset_name: ${{ steps.selectversion.outputs.buildversionfilename }}.bin
+      #     asset_content_type: application/octet-stream
