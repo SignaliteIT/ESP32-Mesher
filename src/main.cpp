@@ -1,7 +1,6 @@
 #ifndef RECETTE
 
 #include <Version.h>
-#include <configuration.h>
 #include <BuildInfo.h>
 
 #include <Arduino.h>
