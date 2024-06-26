@@ -8,8 +8,7 @@ on:
     branches: ["main"]
 
 jobs:
-  build:
-    permissions: write-all
+  selectversion:
     runs-on: ubuntu-latest
     outputs:
       branchname: ${{ steps.versioninfo.outputs.branchname }}
@@ -24,20 +23,10 @@ jobs:
       nextpatchdigit: ${{ steps.selectversion.outputs.nextpatchdigit }}
       buildversion: ${{ steps.selectversion.outputs.buildversion }}
       buildversionfilename: ${{ steps.selectversion.outputs.buildversionfilename }}
-
     steps:
       - uses: actions/checkout@v4.1.5
-        with:
-          submodules: "true"
-          token: ${{ secrets.YSIGNALITE_TOKEN }}
       - name: Fetch tags
-        run: git fetch --prune --unshallow --tags
-      - uses: actions/cache@v4.0.2
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.platformio/.cache
-          key: ${{ runner.os }}-pio
+        run: git fetch --prune --tags
       - name: Get version data
         id: versioninfo
         run: |
@@ -53,7 +42,7 @@ jobs:
           echo "fulltag = [$fulltag]"
           declare versiontag=$(echo $fulltag | cut -d'-' -f1)
           echo "extract SemVer numbers from version tag [$versiontag]"
-          declare -i lastmajordigit=$(echo $versiontag | cut -c 1- | cut -d'.' -f1)
+          declare -i lastmajordigit=$(echo $versiontag | cut -c 2- | cut -d'.' -f1)
           echo "lastmajordigit = $lastmajordigit"
           declare -i lastminordigit=$(echo $versiontag | cut -c 1- | cut -d'.' -f2)
           echo "lastminordigit = $lastminordigit"
@@ -85,7 +74,7 @@ jobs:
               declare -i nextminordigit=0
               declare -i nextpatchdigit=0
               declare buildversion="v$nextmajordigit.$nextminordigit.$nextpatchdigit"
-              declare buildversionfilename=$(echo "${builVversion//./_}")
+              declare buildversionfilename=$(echo "esp32-mesher_${buildversion//./_}")
 
             elif [[ "${{ github.event.head_commit.message }}" == *"minor"* ]]; then
               echo "Incrementing Minor versionDigit"
@@ -93,14 +82,14 @@ jobs:
               declare -i nextminordigit=${{ steps.versioninfo.outputs.lastminordigit }}+1
               declare -i nextpatchdigit=0
               declare buildversion="v$nextmajordigit.$nextminordigit.$nextpatchdigit"
-              declare buildversionfilename=$(echo "${builVversion//./_}")
+              declare buildversionfilename=$(echo "esp32-mesher_${buildversion//./_}")
             else
               echo "Incrementing Patch versionDigit"
               declare -i nextmajordigit=${{ steps.versioninfo.outputs.lastmajordigit }}
               declare -i nextminordigit=${{ steps.versioninfo.outputs.lastminordigit }}
               declare -i nextpatchdigit=${{ steps.versioninfo.outputs.lastpatchdigit }}+1
               declare buildversion="v$nextmajordigit.$nextminordigit.$nextpatchdigit"
-              declare buildversionfilename=$(echo "${builVversion//./_}")
+              declare buildversionfilename=$(echo "esp32-mesher_${buildversion//./_}")
             fi
           else
             echo "Not on main branch -> development version"
@@ -108,7 +97,7 @@ jobs:
             declare -i nextminordigit=${{ steps.versioninfo.outputs.lastminordigit }}
             declare -i nextpatchdigit=${{ steps.versioninfo.outputs.lastpatchdigit }}
             declare buildversion="v$nextmajordigit.$nextminordigit.$nextpatchdigit-${{ steps.versioninfo.outputs.commithash }}"
-            declare buildversionfilename=$(echo "${builVversion//./_}")
+            declare buildversionfilename=$(echo "esp32-mesher_${buildversion//./_}")
           fi
           echo "Building Version : $buildversion"
           echo "  Major          : $nextmajordigit"
@@ -130,6 +119,85 @@ jobs:
           echo "  Patch         : ${{ steps.selectversion.outputs.nextpatchdigit }}"
           echo "Build Filename  : ${{ steps.selectversion.outputs.buildversionfilename }}.bin"
           echo "Build Timestamp : ${{ steps.versioninfo.outputs.buildtimestamp }}"
+  # build:
+  #   permissions: write-all
+  #   runs-on: ubuntu-latest
+  #   needs: [selectversion]
+  #   steps:
+  #     - uses: actions/checkout@v4.1.5
+  #       with:
+  #         submodules: "true"
+  #         token: ${{ secrets.YSIGNALITE_TOKEN }}
+  #     - name: Show Build info
+  #       id: showbuildinfo
+  #       run: |
+  #         echo "Build Version   : ${{ needs.selectversion.outputs.buildversion }}"
+  #         echo "  Major         : ${{ needs.selectversion.outputs.nextmajordigit }}"
+  #         echo "  Minor         : ${{ needs.selectversion.outputs.nextminordigit }}"
+  #         echo "  Patch         : ${{ needs.selectversion.outputs.nextpatchdigit }}"
+  #         echo "Build Filename  : ${{ needs.selectversion.outputs.buildversionfilename }}.bin"
+  #         echo "Build Timestamp : ${{ needs.selectversion.outputs.buildtimestamp }}"
+  #     - name: Save Build info
+  #       uses: "DamianReeves/write-file-action@v1.3"
+  #       with:
+  #         path: lib/Version/BuildInfo.cpp
+  #         write-mode: overwrite
+  #         contents: |
+  #           // ##########################################################################
+  #           // ### This file is generated by Build and Continuous Integration scripts ###
+  #           // ###   .github/workflows/BuildInfo.py for local development environment ###
+  #           // ###   .github/workflows/testbuildrelease.yml for CI environment        ###
+  #           // ### Changes will be overwritten on the next build                      ###
+  #           // ##########################################################################
+  #           #include "BuildInfo.h"
+  #           const BuildEnvironment BuildInfo::buildEnvironment{BuildEnvironment::ci};
+  #           const BuildType BuildInfo::buildType{BuildType::production};
+  #           const int BuildInfo::mainVersionDigit   = ${{ needs.selectversion.outputs.nextmajordigit }};
+  #           const int BuildInfo::minorVersionDigit  = ${{ needs.selectversion.outputs.nextminordigit }};
+  #           const int BuildInfo::patchVersionDigit  = ${{ needs.selectversion.outputs.nextpatchdigit }};
+  #           const char* BuildInfo::lastCommitTag    = "${{ needs.selectversion.outputs.commithash }}";
+  #           const char* BuildInfo::buildTimeStamp   = "${{ needs.selectversion.outputs.buildtimestamp }}";
+  #     - name: Verify Saved Build info
+  #       run: |
+  #         cat lib/Version/BuildInfo.cpp
+  #     - uses: actions/cache@v4.0.2
+  #       with:
+  #         path: |
+  #           ~/.cache/pip
+  #           ~/.platformio/.cache
+  #           ~/.pio/libdeps
+  #         key: ${{ runner.os }}-pio-build
+  #     - uses: actions/setup-python@v5.1.0
+  #       with:
+  #         python-version: "3.11"
+  #     - name: Install PlatformIO Core
+  #       run: pip install --upgrade platformio
+  #     - name: Build PlatformIO Project
+  #       run: pio run --environment cloud_arduino_nano_esp32
+  #     - name: Attach Binary to Workflow run
+  #       uses: actions/upload-artifact@v4.3.3
+  #       with:
+  #         name: ${{ needs.selectversion.outputs.buildversionfilename }}.bin
+  #         path: .pio/build/cloud_arduino_nano_esp32/
+  #         if-no-files-found: error
+  test:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    needs: [selectversion]
+    steps:
+      - uses: actions/checkout@v4.1.5
+        with:
+          submodules: "true"
+          token: ${{ secrets.YSIGNALITE_TOKEN }}
+      - name: Show Build info
+        id: showbuildinfo
+        run: |
+          echo "Build Version   : ${{ needs.selectversion.outputs.buildversion }}"
+          echo "  Major         : ${{ needs.selectversion.outputs.nextmajordigit }}"
+          echo "  Minor         : ${{ needs.selectversion.outputs.nextminordigit }}"
+          echo "  Patch         : ${{ needs.selectversion.outputs.nextpatchdigit }}"
+          echo "Build Filename  : ${{ needs.selectversion.outputs.buildversionfilename }}.bin"
+          echo "Build Timestamp : ${{ needs.selectversion.outputs.buildtimestamp }}"
       - name: Save Build info
         uses: "DamianReeves/write-file-action@v1.3"
         with:
@@ -145,14 +213,21 @@ jobs:
             #include "BuildInfo.h"
             const BuildEnvironment BuildInfo::buildEnvironment{BuildEnvironment::ci};
             const BuildType BuildInfo::buildType{BuildType::production};
-            const int BuildInfo::mainVersionDigit   = ${{ steps.selectversion.outputs.nextmajordigit }};
-            const int BuildInfo::minorVersionDigit  = ${{ steps.selectversion.outputs.nextminordigit }};
-            const int BuildInfo::patchVersionDigit  = ${{ steps.selectversion.outputs.nextpatchdigit }};
-            const char* BuildInfo::lastCommitTag    = "${{ steps.versioninfo.outputs.commithash }}";
-            const char* BuildInfo::buildTimeStamp   = "${{ steps.versioninfo.outputs.buildtimestamp }}";
+            const int BuildInfo::mainVersionDigit   = ${{ needs.selectversion.outputs.nextmajordigit }};
+            const int BuildInfo::minorVersionDigit  = ${{ needs.selectversion.outputs.nextminordigit }};
+            const int BuildInfo::patchVersionDigit  = ${{ needs.selectversion.outputs.nextpatchdigit }};
+            const char* BuildInfo::lastCommitTag    = "${{ needs.selectversion.outputs.commithash }}";
+            const char* BuildInfo::buildTimeStamp   = "${{ needs.selectversion.outputs.buildtimestamp }}";
       - name: Verify Saved Build info
         run: |
           cat lib/Version/BuildInfo.cpp
+      - uses: actions/cache@v4.0.2
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+            ~/.pio/libdeps
+          key: ${{ runner.os }}-pio-test
       - uses: actions/setup-python@v5.1.0
         with:
           python-version: "3.11"
@@ -160,33 +235,34 @@ jobs:
         run: pip install --upgrade platformio
       - name: Test Project
         run: pio test --environment cloud_recette
-      - name: Build PlatformIO Project
-        run: pio run --environment cloud_arduino_nano_esp32
-      # - name: Attach Binary to Workflow run
-      #   uses: actions/upload-artifact@v4.3.3
-      #   with:
-      #     name: ${{ steps.selectversion.outputs.buildversionfilename }}.bin
-      #     path: .pio/build/cloud_arduino_nano_esp32/
-      #     if-no-files-found: error
-      - name: Release when on main branch
-        id: createrelease
-        uses: actions/create-release@v1
-        if: ${{ steps.versioninfo.outputs.branchname == 'main'}}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.selectversion.outputs.buildversion }}
-          release_name: Release ${{ steps.selectversion.outputs.buildversion }}
-          draft: false
-          prerelease: false
-      # - name: Attach Binary to Release
-      #   id: attachbinarytorelease
-      #   uses: actions/upload-release-asset@v1
-      #   if: ${{ steps.versioninfo.outputs.branchname == 'main'}}
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ steps.createrelease.outputs.upload_url }}
-      #     asset_path: .pio/build/cloud_arduino_nano_esp32/firmware.bin
-      #     asset_name: ${{ steps.selectversion.outputs.buildversionfilename }}.bin
-      #     asset_content_type: application/octet-stream
+  # createrelease:
+  #   permissions: write-all
+  #   runs-on: ubuntu-latest
+  #   needs: [selectversion, build, test]
+  #   steps:
+  #     - uses: actions/download-artifact@v4.1.7
+  #       with:
+  #         name: ${{ needs.selectversion.outputs.buildversionfilename }}.bin
+  #         path: /home/runner/${{ needs.selectversion.outputs.buildversionfilename }}.bin
+  #     - name: Release when on main branch
+  #       id: createrelease
+  #       uses: actions/create-release@v1
+  #       if: ${{ needs.selectversion.outputs.branchname == 'main'}}
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         tag_name: ${{ needs.selectversion.outputs.buildversion }}
+  #         release_name: Release ${{ needs.selectversion.outputs.buildversion }}
+  #         draft: false
+  #         prerelease: false
+  #     - name: Attach Binary to Release
+  #       id: attachbinarytorelease
+  #       uses: actions/upload-release-asset@v1
+  #       if: ${{ needs.selectversion.outputs.branchname == 'main'}}
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         upload_url: ${{ steps.createrelease.outputs.upload_url }}
+  #         asset_path: /home/runner/${{ needs.selectversion.outputs.buildversionfilename }}.bin
+  #         asset_name: ${{ needs.selectversion.outputs.buildversionfilename }}.bin
+  #         asset_content_type: application/octet-stream
