@@ -1,5 +1,4 @@
 #ifndef RECETTE
-
 #include <BuildInfo.h>
 #include <Version.h>
 
@@ -14,7 +13,7 @@ Scheduler userScheduler;  // to control your personal task
 painlessMesh mesh;
 
 // User stub
-void sendMessage();  // Prototype so PlatformIO doesn't complain
+void sendMessage();
 
 Task taskSendMessage(TASK_SECOND * 1, TASK_FOREVER, &sendMessage);
 
