@@ -1,0 +1,40 @@
+{
+  "name": "ESP32-Mesher",
+  "keywords": "ethernet, m2m, iot",
+  "version": "0.0.1",
+  "description": "A painless way to setup a networked mesh for ESP32 devices",
+  "frameworks": ["arduino"],
+  "platforms": ["espressif8266, espressif32"],
+  "dependencies": [
+    // { "name": "ArduinoJson" },
+    {
+      "owner": "bblanchon",
+      "name": "ArduinoJson",
+      "version": "^7.0.4"
+    },
+    { "name": "TaskScheduler" },
+    { "name": "AsyncTCP", "platforms": "espressif32" },
+    { "name": "ESPAsyncTCP", "platforms": "espressif8266" }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SignaliteIT/ESP32-Mesher"
+  },
+  "authors": [
+    {
+      "name": "Yann Le Coroller",
+      "email": "y.lecoroller@signalite.fr",
+      "url": "https://www.signalite.fr/"
+    },
+    { "name": "Scotty Franzyshen" },
+    {
+      "name": "Coopdis",
+      "url": "https://github.com/Coopdis"
+    },
+    { "name": "Edwin van Leeuwen" },
+    { "name": "Germán Martín" },
+    { "name": "Maximilian Schwarz" },
+    { "name": "Doanh Doanh" }
+  ],
+  "headers": "painlessMesh.h"
+}

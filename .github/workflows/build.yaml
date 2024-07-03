@@ -235,26 +235,26 @@ jobs:
         run: pip install --upgrade platformio
       - name: Test Project
         run: pio test --environment cloud_recette
-  # createrelease:
-  #   permissions: write-all
-  #   runs-on: ubuntu-latest
-  #   needs: [selectversion, build, test]
-  #   steps:
-  #     - uses: actions/download-artifact@v4.1.7
-  #       with:
-  #         name: ${{ needs.selectversion.outputs.buildversionfilename }}.bin
-  #         path: /home/runner/${{ needs.selectversion.outputs.buildversionfilename }}.bin
-  #     - name: Release when on main branch
-  #       id: createrelease
-  #       uses: actions/create-release@v1
-  #       if: ${{ needs.selectversion.outputs.branchname == 'main'}}
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #       with:
-  #         tag_name: ${{ needs.selectversion.outputs.buildversion }}
-  #         release_name: Release ${{ needs.selectversion.outputs.buildversion }}
-  #         draft: false
-  #         prerelease: false
+  createrelease:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    needs: [selectversion, test]
+    steps:
+      - uses: actions/download-artifact@v4.1.7
+        with:
+          name: ${{ needs.selectversion.outputs.buildversionfilename }}.bin
+          path: /home/runner/${{ needs.selectversion.outputs.buildversionfilename }}.bin
+      - name: Release when on main branch
+        id: createrelease
+        uses: actions/create-release@v1
+        if: ${{ needs.selectversion.outputs.branchname == 'main'}}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.selectversion.outputs.buildversion }}
+          release_name: Release ${{ needs.selectversion.outputs.buildversion }}
+          draft: false
+          prerelease: false
   #     - name: Attach Binary to Release
   #       id: attachbinarytorelease
   #       uses: actions/upload-release-asset@v1
