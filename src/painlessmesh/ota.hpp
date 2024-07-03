@@ -99,11 +99,6 @@ class Announce : public BroadcastPackage {
     return jsonObj;
   }
 
-  size_t jsonObjectSize() const {
-    return JSON_OBJECT_SIZE(noJsonFields + 5) +
-           round(1.1 * (md5.length() + hardware.length() + role.length()));
-  }
-
  protected:
   Announce(int type, router::Type routing) : BroadcastPackage(type) {
     this->routing = routing;
@@ -154,11 +149,6 @@ class DataRequest : public Announce {
 
   static DataRequest replyTo(const Data& d, size_t partNo);
 
-  size_t jsonObjectSize() const {
-    return JSON_OBJECT_SIZE(noJsonFields + 5 + 2) +
-           round(1.1 * (md5.length() + hardware.length() + role.length()));
-  }
-
  protected:
   DataRequest(int type) : Announce(type, router::SINGLE) {}
 };
@@ -195,12 +185,6 @@ class Data : public DataRequest {
     d.partNo = partNo;
     d.data = data;
     return d;
-  }
-
-  size_t jsonObjectSize() const {
-    return JSON_OBJECT_SIZE(noJsonFields + 5 + 2 + 1) +
-           round(1.1 * (md5.length() + hardware.length() + role.length() +
-                        data.length()));
   }
 };
 
@@ -257,11 +241,6 @@ class State : public protocol::PackageInterface {
     jsonObj["md5"] = md5;
     jsonObj["hardware"] = hardware;
     return jsonObj;
-  }
-
-  size_t jsonObjectSize() const {
-    return JSON_OBJECT_SIZE(3) +
-           round(1.1 * (md5.length() + hardware.length() + role.length()));
   }
 
   std::shared_ptr<Task> task;

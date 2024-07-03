@@ -46,7 +46,6 @@ enum TimeType {
 class PackageInterface {
  public:
   virtual JsonObject addTo(JsonObject&& jsonObj) const = 0;
-  virtual size_t jsonObjectSize() const = 0;
 };
 
 /**
@@ -81,10 +80,6 @@ class Single : public PackageInterface {
     jsonObj["msg"] = msg;
     return jsonObj;
   }
-
-  size_t jsonObjectSize() const {
-    return JSON_OBJECT_SIZE(4) + ceil(1.1 * msg.length());
-  }
 };
 
 /**
@@ -100,10 +95,6 @@ class Broadcast : public Single {
     jsonObj = Single::addTo(std::move(jsonObj));
     jsonObj["type"] = type;
     return jsonObj;
-  }
-
-  size_t jsonObjectSize() const {
-    return JSON_OBJECT_SIZE(4) + ceil(1.1 * msg.length());
   }
 };
 
@@ -168,16 +159,6 @@ class NodeTree : public PackageInterface {
 
   TSTRING toString(bool pretty = false);
 
-  size_t jsonObjectSize() const {
-    size_t base = 1;
-    if (root) ++base;
-    if (subs.size() > 0) ++base;
-    size_t size = JSON_OBJECT_SIZE(base);
-    if (subs.size() > 0) size += JSON_ARRAY_SIZE(subs.size());
-    for (auto&& s : subs) size += s.jsonObjectSize();
-    return size;
-  }
-
   void clear() {
     nodeId = 0;
     subs.clear();
@@ -224,16 +205,6 @@ class NodeSyncRequest : public NodeTree {
 
   bool operator!=(const NodeSyncRequest& b) const {
     return !this->operator==(b);
-  }
-
-  size_t jsonObjectSize() const {
-    size_t base = 4;
-    if (root) ++base;
-    if (subs.size() > 0) ++base;
-    size_t size = JSON_OBJECT_SIZE(base);
-    if (subs.size() > 0) size += JSON_ARRAY_SIZE(subs.size());
-    for (auto&& s : subs) size += s.jsonObjectSize();
-    return size;
   }
 };
 
@@ -346,10 +317,6 @@ class TimeSync : public PackageInterface {
     msg.t2 = newT2;
     ++msg.type;
     std::swap(from, dest);
-  }
-
-  size_t jsonObjectSize() const {
-    return JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(4);
   }
 };
 

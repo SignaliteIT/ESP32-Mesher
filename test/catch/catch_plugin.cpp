@@ -28,8 +28,6 @@ class CustomPackage : public plugin::SinglePackage {
     jsonObj["sensor"] = sensor;
     return jsonObj;
   }
-
-  size_t jsonObjectSize() const { return JSON_OBJECT_SIZE(noJsonFields + 1); }
 };
 
 class BCustomPackage : public plugin::BroadcastPackage {
@@ -47,8 +45,6 @@ class BCustomPackage : public plugin::BroadcastPackage {
     jsonObj["sensor"] = sensor;
     return jsonObj;
   }
-
-  size_t jsonObjectSize() const { return JSON_OBJECT_SIZE(noJsonFields + 1); }
 };
 
 class MockConnection : public layout::Neighbour {

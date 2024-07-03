@@ -82,10 +82,6 @@ class PerformancePackage : public plugin::BroadcastPackage {
     jsonObj["hardware"] = hardware;
     return jsonObj;
   }
-
-  size_t jsonObjectSize() const {
-    return JSON_OBJECT_SIZE(4 + 5) + round(2 * (hardware.length()));
-  }
 };
 
 /// Numbers to track for each node we receive PerformancePackages from
@@ -132,11 +128,6 @@ class TrackMap : public protocol::PackageInterface,
     }
     return jsonObj;
   }  // namespace performance
-
-  size_t jsonObjectSize() const {
-    return JSON_OBJECT_SIZE(2 + 15) + JSON_ARRAY_SIZE(this->size()) +
-           this->size()*(JSON_OBJECT_SIZE(9) + 4 * 100);
-  }
 };  // namespace plugin
 
 template <class T>
@@ -170,7 +161,7 @@ void begin(T& mesh, double frequency = 2) {
   });
 
   sendPkg->from = mesh.getNodeId();
-  mesh.addTask(frequency*TASK_SECOND, TASK_FOREVER, [sendPkg, &mesh]() {
+  mesh.addTask(frequency * TASK_SECOND, TASK_FOREVER, [sendPkg, &mesh]() {
     ++sendPkg->id;
     sendPkg->time = mesh.getNodeTime();
     sendPkg->stability = mesh.stability;
