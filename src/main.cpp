@@ -1,9 +1,9 @@
-#ifndef RECETTE
+#ifdef RECETTE
 #include <BuildInfo.h>
 #include <Version.h>
 
 #include <Arduino.h>
-#include "painlessMesh.h"
+#include "ESP32-Mesher.h"
 
 #define MESH_PREFIX "whateverYouLike"
 #define MESH_PASSWORD "somethingSneaky"
