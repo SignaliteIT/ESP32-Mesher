@@ -48,7 +48,7 @@ inline int32_t clockOffset(uint32_t time0, uint32_t time1, uint32_t time2,
 
   // Take small steps to avoid over correction
   if (offset < 0.5 * TASK_SECOND && offset > 4) offset = offset / 4;
-  return 0;
+  return offset;
 }
 
 /**
@@ -69,9 +69,8 @@ inline bool adopt(protocol::NodeTree mesh, protocol::NodeTree connection) {
   if (mySubCount == remoteSubCount) {
     if (connection.nodeId == 0)
       Log(logger::ERROR, "Adopt called on uninitialized connection\n");
-    // TODO: there is a change here that a middle node also lower is than the
-    // two others and will start switching between both. Maybe should do it
-    // randomly instead?
+    // TODO: there is a change here that a middle node also lower is than the two others and will
+    // start switching between both. Maybe should do it randomly instead?
     return mesh.nodeId < connection.nodeId;
   }
   return true;
